@@ -11,20 +11,14 @@ class Mandelbrot extends JPanel {
 
     private int width;
     private int height;
-    private int x;
-    private int y;
-    private double cX = 0;
-    private double cY = 0;
-    private double zX = 0; //500
-    private double zY = 0; // 960
+    private double zX = 0;
+    private double zY = 0;
     private BufferedImage I;
     private int maxIterations;
     private double minIm;
     private double maxIm;
     private double minReal;
     private double maxReal;
-    double clickedY;
-    double clickedX;
     int zoomXEnd;
     int zoomYEnd;
     int zoomXStart;
@@ -32,8 +26,7 @@ class Mandelbrot extends JPanel {
     int drawX;
     int drawY;
     private boolean drawRect;
-    Graphics2D g2d;
-    Graphics2D g2;
+    private Graphics2D g2;
 
 
     public Mandelbrot(int maxIterations, double minIm, double maxIm, double minReal, double maxReal) {
@@ -48,7 +41,6 @@ class Mandelbrot extends JPanel {
         width = this.getWidth();
         height = this.getHeight();
         I = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        g2d = I.createGraphics();
         calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
 
         MouseListen listen = new MouseListen();
@@ -64,11 +56,6 @@ class Mandelbrot extends JPanel {
         if (drawRect) {
             g2.drawRect(drawX, drawY, Math.abs(zoomXEnd - zoomXStart), Math.abs(zoomYEnd - zoomYStart));
         }
-
-    }
-
-    public Graphics2D getGraphics2D() {
-        return g2d;
     }
 
     protected void calculatePoints(int maxIterations, double minIm, double maxIm, double minReal, double maxReal) {
@@ -76,16 +63,8 @@ class Mandelbrot extends JPanel {
         Complex z;
         Complex z2;
         int noIterations;
-        double noIterationsColor;
-        double logZn;
-        double nu;
-        Color[] colours;
-        Color color1;
-        Color color2;
-        int colorIndex;
         Color paintColour;
-        Color paintColourPrevious;
-        Color painted;
+
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 noIterations = 0;
@@ -103,26 +82,9 @@ class Mandelbrot extends JPanel {
                     z = z2;
                     noIterations++;
                 }
-//                logZn = Math.log(zX * zX + zY * zY) / 2;
-//                nu = Math.log(logZn / Math.log(2) / Math.log(2));
-//                noIterationsColor = noIterations;
-//                noIterationsColor = noIterationsColor + 1 - nu;
-//
-//                paintColour = generateColors((int)Math.floor(noIterationsColor), maxIterations);
-//                paintColourPrevious = generateColors((int)Math.floor(noIterationsColor) + 1, maxIterations);
-//                painted = interpolateColours(paintColour, paintColourPrevious, noIterations % 1);
-//                I.setRGB(x, y, painted.getRGB());
 
-//                paintColourPrevious = generateColors(noIterations - 1, maxIterations);
                 paintColour = generateColors(noIterations, maxIterations);
-//                GradientPaint gradient = new GradientPaint(x, y, paintColour, x, y, paintColourPrevious);
-//                paintColourPrevious = generateColors((int)Math.floor(noIterationsColor), maxIterations);
-
-
-
-//                painted = interpolateColours(paintColourPrevious, paintColour, noIterations %1  );
                 I.setRGB(x, y, paintColour.getRGB());
-
             }
         }
         repaint();
@@ -161,23 +123,11 @@ class Mandelbrot extends JPanel {
         float g;
         float b;
 
-        //r = red1 + ((red2 - red1) * stage / 256);
-        //r = (int) (color1.getRed() + ((color2.getRed() - color1.getRed()) * interpolationValue / 256));
         r = (float)(color1.getRed() * (interpolationValue) + color2.getRed() * (1-interpolationValue));
         g = (float)(color1.getGreen() * (interpolationValue) + color2.getRed() * (1-interpolationValue));
-        //g = (int) (color1.getGreen() + ((color2.getGreen() - color1.getGreen()) * interpolationValue / 256));
         b = (float)(color1.getBlue() * (interpolationValue) + color2.getBlue() * (1-interpolationValue));
 
-
         return new Color(r, g, b);
-    }
-
-    public void setHeight(int height) {
-        this.height = height;
-    }
-
-    public void setWidth(int width) {
-        this.width = width;
     }
 
     class MouseListen extends MouseAdapter {
@@ -186,31 +136,20 @@ class Mandelbrot extends JPanel {
             drawRect = true;
             zoomXStart = e.getX();
             zoomYStart = e.getY();
-            clickedY = maxIm - e.getY() * (maxIm - minIm) / height;
-            clickedX = minReal + e.getX() * (maxReal - minReal) / width;
-            System.out.println(drawX + " " + drawY);
         }
 
         public void mouseDragged(MouseEvent e) {
-
             zoomXEnd = e.getX();
             zoomYEnd = e.getY();
-
             drawX = Math.min(zoomXEnd, zoomXStart);
             drawY = Math.min(zoomYEnd, zoomYStart);
             repaint();
-
-            //repaint();
-            //mandelbrotPanel.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
-
         }
 
         public void mouseReleased(MouseEvent e) {
             drawRect = false;
             zoomXEnd = e.getX();
             zoomYEnd = e.getY();
-//            drawX = Math.min(zoomXEnd, zoomXStart);
-//            drawY = Math.min(zoomYEnd, zoomYStart);
         }
 
     }
