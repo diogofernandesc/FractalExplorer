@@ -26,13 +26,25 @@ public class Complex {
     public Complex square() {
 
         double newA = (a * a) - (b * b);
-        double newB = b = 2 * a * b;
+        double newB = 2 * a * b;
         return new Complex(newA, newB);
     }
 
     public double modulusSquared() {
 
         return (a * a) + (b * b);
+    }
+
+    public Complex squareTricorn() {
+        double newA = (a * a) - (b * b);
+        double newB = -2 * a * b;
+        return new Complex(newA, newB);
+    }
+
+    public Complex squareWithI() {
+        double newA = (a*a) - (b*b);
+        double newB = 2* Math.abs(a * b);
+        return new Complex (newA, newB);
     }
 
     public Complex add(Complex d) {

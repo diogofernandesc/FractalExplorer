@@ -1,9 +1,17 @@
+import com.sun.org.apache.xpath.internal.operations.Mult;
+
 import java.awt.*;
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.EtchedBorder;
 import javax.swing.border.TitledBorder;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import java.awt.event.*;
+import java.awt.image.BufferedImage;
 import java.io.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 public class Display {
@@ -22,13 +30,22 @@ class Window extends JFrame {
     private double minIm = -1.6;
     private double maxIm = 1.6;
     private MandelbrotSet mandelbrotPanel;
-    private Tunnel tunnelDraw;
-    private Julia julia;
+    private BurningShip burningShipDraw;
+    private MultiBrot multiBrotDraw;
+    private Tricorn tricornDraw;
+    private JuliaMandelbrot juliaMandelBrotSet;
+    private JuliaMultibrot juliaMultiBrotSet;
+    private JuliaBurningShip juliaBurningShipSet;
+    private JuliaTricorn juliaTricornSet;
     private double clickedX, clickedY, releasedX, releasedY;
-    public JTextField realAxisFieldMin, realAxisFieldMax, imaginaryAxisFieldMin, imaginaryAxisFieldMax;
-    JLabel complexPoint;
-    JPanel leftPanel;
-    MouseListenerDisplay mouseListenerMandelbrot;
+    public JTextField realAxisFieldMin, realAxisFieldMax, imaginaryAxisFieldMin, imaginaryAxisFieldMax, iterationField;
+    private JLabel complexPoint;
+    private JPanel leftPanel;
+    private Double draggedY;
+    private Double draggedX;
+    private String currentBrot;
+    private Fractal currentFractal;
+    private JuliaSet currentJulia;
 
     public Window(String title) {
         super("Fractal Explorer");
@@ -43,8 +60,38 @@ class Window extends JFrame {
         container.setLayout(new BorderLayout());
         container.setBackground(Color.LIGHT_GRAY);
 
-        // New Mandelbrot JPanel is the left panel
+        MouseListenerDisplay displayMouseListener = new MouseListenerDisplay();
+        KeyListenerDisplay displayKeyListener = new KeyListenerDisplay();
+
+        // Mandelbrot creation:
         mandelbrotPanel = new MandelbrotSet(maxIterations, minIm, maxIm, minReal, maxReal);
+        juliaMandelBrotSet = new JuliaMandelbrot(maxIterations, minIm, maxIm, minReal, maxReal);
+        mandelbrotPanel.addMouseListener(displayMouseListener);
+        mandelbrotPanel.addMouseMotionListener(displayMouseListener);
+        mandelbrotPanel.addKeyListener(displayKeyListener);
+        mandelbrotPanel.setFocusable(true);
+        currentBrot = "mandelbrot";
+
+        //Multibrot creation:
+        multiBrotDraw = new MultiBrot(maxIterations, minIm, maxIm, minReal, maxReal, 2);
+        juliaMultiBrotSet = new JuliaMultibrot(maxIterations, minIm, maxIm, minReal, maxReal);
+        multiBrotDraw.addMouseListener(displayMouseListener);
+        multiBrotDraw.addMouseMotionListener(displayMouseListener);
+        multiBrotDraw.addKeyListener(displayKeyListener);
+
+        //Burning ship creation:
+        burningShipDraw = new BurningShip(maxIterations, minIm, maxIm, minReal, maxReal);
+        juliaBurningShipSet = new JuliaBurningShip(maxIterations, minIm, maxIm, minReal, maxReal);
+        burningShipDraw.addMouseListener(displayMouseListener);
+        burningShipDraw.addMouseMotionListener(displayMouseListener);
+        burningShipDraw.addKeyListener(displayKeyListener);
+
+        // Tricorn creation:
+        tricornDraw = new Tricorn(maxIterations, minIm, maxIm, minReal, maxReal);
+        juliaTricornSet = new JuliaTricorn(maxIterations, minIm, maxIm, minReal, maxReal);
+        tricornDraw.addMouseListener(displayMouseListener);
+        tricornDraw.addMouseMotionListener(displayMouseListener);
+        tricornDraw.addKeyListener(displayKeyListener);
 
         RightPanel rightPanel = new RightPanel();
         rightPanel.init();
@@ -52,12 +99,8 @@ class Window extends JFrame {
         leftPanel.setLayout(null);
 
         leftPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-        leftPanel.setBorder(new TitledBorder(new EtchedBorder(), "Mandelbrot Set"));
+        leftPanel.setBorder(new TitledBorder(new EtchedBorder(), "Main Fractal"));
         leftPanel.add(mandelbrotPanel);
-
-        mouseListenerMandelbrot = new MouseListenerDisplay(mandelbrotPanel);
-        mandelbrotPanel.addMouseListener(mouseListenerMandelbrot);
-        mandelbrotPanel.addMouseMotionListener(mouseListenerMandelbrot);
 
         // Adding to the panels/frames structure:
 
@@ -70,36 +113,69 @@ class Window extends JFrame {
 
     }
 
+    public void getCurrentBrot() {
+        if (currentBrot == "mandelbrot") {
+            currentFractal = mandelbrotPanel;
+            currentJulia = juliaMandelBrotSet;
+
+        } else if (currentBrot == "multibrot") {
+            currentFractal = multiBrotDraw;
+            currentJulia = juliaMultiBrotSet;
+
+        } else if (currentBrot == "burning ship") {
+            currentFractal = burningShipDraw;
+            currentJulia = juliaBurningShipSet;
+
+        } else if (currentBrot == "tricorn") {
+            currentFractal = tricornDraw;
+            currentJulia = juliaTricornSet;
+        }
+    }
+
+    protected void resetAxisValues() {
+        minReal = -2.0;
+        maxReal = 2.0;
+        minIm = -1.6;
+        maxIm = 1.6;
+        realAxisFieldMin.setText(Double.toString(minReal));
+        realAxisFieldMax.setText(Double.toString(maxReal));
+        imaginaryAxisFieldMin.setText(Double.toString(minIm));
+        imaginaryAxisFieldMax.setText(Double.toString(maxIm));
+
+    }
+
     class MouseListenerDisplay implements MouseListener, MouseMotionListener {
 
-        Fractal fractal;
-
-        public MouseListenerDisplay(Fractal fractal) {
-            this.fractal = fractal;
+        public MouseListenerDisplay() {
+            getCurrentBrot();
         }
+
         @Override
         public void mouseClicked(MouseEvent e) {
-            clickedY = maxIm - e.getY() * (maxIm - minIm) / fractal.getHeight();
-            clickedX = minReal + e.getX() * (maxReal - minReal) / fractal.getWidth();
+            getCurrentBrot();
+            clickedY = maxIm - e.getY() * (maxIm - minIm) / currentFractal.getHeight();
+            clickedX = minReal + e.getX() * (maxReal - minReal) / currentFractal.getWidth();
             if (clickedY < 0) {
                 complexPoint.setText(clickedX + " " + clickedY + "i");
             } else {
                 complexPoint.setText(clickedX + " + " + clickedY + "i");
             }
-            julia.setBounds(10, 20, 400, 315);
-            julia.calculatePoints(clickedX, clickedY);
+            currentJulia.setBounds(10, 20, 400, 340);
+            currentJulia.calculatePoints(clickedX, clickedY);
         }
 
         @Override
         public void mousePressed(MouseEvent e) {
-            clickedY = maxIm - e.getY() * (maxIm - minIm) / fractal.getHeight();
-            clickedX = minReal + e.getX() * (maxReal - minReal) / fractal.getWidth();
+            getCurrentBrot();
+            clickedY = maxIm - e.getY() * (maxIm - minIm) / currentFractal.getHeight();
+            clickedX = minReal + e.getX() * (maxReal - minReal) / currentFractal.getWidth();
         }
 
         @Override
         public void mouseReleased(MouseEvent e) {
-            releasedX = minReal + e.getX() * (maxReal - minReal) / fractal.getWidth();
-            releasedY = maxIm - e.getY() * (maxIm - minIm) / fractal.getHeight();
+            getCurrentBrot();
+            releasedX = minReal + e.getX() * (maxReal - minReal) / currentFractal.getWidth();
+            releasedY = maxIm - e.getY() * (maxIm - minIm) / currentFractal.getHeight();
 
             // Stop zoom when clicking
             if (((Math.abs(clickedX - releasedX)) > 0) || ((Math.abs(clickedY - releasedY)) > 0 )) {
@@ -114,7 +190,7 @@ class Window extends JFrame {
             imaginaryAxisFieldMax.setText(Double.toString(maxIm));
             imaginaryAxisFieldMin.setText(Double.toString(minIm));
 
-            fractal.calculatePoints(maxIterations,minIm,maxIm,minReal,maxReal);
+            currentFractal.calculatePoints(maxIterations,minIm,maxIm,minReal,maxReal);
         }
 
         @Override
@@ -128,14 +204,120 @@ class Window extends JFrame {
 
         @Override
         public void mouseMoved(MouseEvent e) {
-            Double draggedY = maxIm - e.getY() * (maxIm - minIm) / mandelbrotPanel.getHeight();
-            Double draggedX = minReal + e.getX() * (maxReal - minReal) / mandelbrotPanel.getWidth();
-            julia.calculatePoints(draggedX, draggedY);
+            getCurrentBrot();
+            clickedY = maxIm - e.getY() * (maxIm - minIm) / currentFractal.getHeight();
+            clickedX = minReal + e.getX() * (maxReal - minReal) / currentFractal.getWidth();
+            draggedY = maxIm - e.getY() * (maxIm - minIm) / mandelbrotPanel.getHeight();
+            draggedX = minReal + e.getX() * (maxReal - minReal) / mandelbrotPanel.getWidth();
+            currentJulia.calculatePoints(draggedX, draggedY);
+        }
+    }
+
+    class KeyListenerDisplay implements KeyListener {
+
+        public KeyListenerDisplay() {
+            getCurrentBrot();
+        }
+
+        public void zoom(double amount) {
+            getCurrentBrot();
+            minReal = draggedX - amount;
+            maxReal = draggedX + amount;
+            minIm = draggedY - amount;
+            maxIm = draggedY + amount;
+            realAxisFieldMin.setText(Double.toString(draggedX - amount));
+            realAxisFieldMax.setText(Double.toString(draggedX + amount));
+            imaginaryAxisFieldMin.setText(Double.toString(draggedY - amount));
+            imaginaryAxisFieldMax.setText(Double.toString(draggedY + amount));
+            maxIterations = Integer.parseInt(iterationField.getText());
+            currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
+        }
+        @Override
+        public void keyTyped(KeyEvent e) {
+
+        }
+
+        @Override
+        public void keyPressed(KeyEvent e) {
+            getCurrentBrot();
+            if(e.getKeyCode() == KeyEvent.VK_ENTER) {
+                maxIterations = Integer.parseInt(iterationField.getText());
+                minIm = Double.parseDouble(imaginaryAxisFieldMin.getText());
+                maxIm = Double.parseDouble(imaginaryAxisFieldMax.getText());
+                minReal = Double.parseDouble(realAxisFieldMin.getText());
+                maxReal = Double.parseDouble(realAxisFieldMax.getText());
+                currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_LEFT) {
+                maxReal = Double.parseDouble(realAxisFieldMax.getText()) + 0.5;
+                realAxisFieldMax.setText(Double.toString(maxReal));
+                currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+                minReal = Double.parseDouble(realAxisFieldMin.getText()) - 0.5;
+                realAxisFieldMin.setText(Double.toString(minReal));
+                currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_UP) {
+                // imag axis decrease
+                minIm = Double.parseDouble(imaginaryAxisFieldMin.getText()) - 0.5;
+                imaginaryAxisFieldMin.setText(Double.toString(minIm));
+                currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_DOWN) {
+                maxIm = Double.parseDouble(imaginaryAxisFieldMax.getText()) + 0.5;
+                imaginaryAxisFieldMax.setText(Double.toString(maxIm));
+                currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
+                maxReal = 2;
+                minReal = -2;
+                maxIm = 1.6;
+                minIm = -1.6;
+                realAxisFieldMin.setText(Double.toString(minReal));
+                realAxisFieldMax.setText(Double.toString(maxReal));
+                imaginaryAxisFieldMin.setText(Double.toString(minIm));
+                imaginaryAxisFieldMax.setText(Double.toString(maxIm));
+                currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_1) {
+                zoom(0.05);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_2) {
+                zoom(0.01);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_3) {
+                zoom(0.005);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_4) {
+                zoom(0.001);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_5) {
+                zoom(0.0005);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_6) {
+                zoom(0.0001);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_7) {
+                zoom(0.00005);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_8) {
+                zoom(0.00001);
+
+            } else if (e.getKeyCode() == KeyEvent.VK_9) {
+                zoom(0.000005);
+            }
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
+
         }
     }
 
     class RightPanel extends JPanel {
 
+        JPanel juliaPanel;
         File pointFile = new File("Points.txt");
 
         FileInputStream fileStream;
@@ -169,7 +351,7 @@ class Window extends JFrame {
             createTabbedPaneBox();
 
             // Create julia set box:
-            createJuliaBox();
+            createJuliaBox(juliaMandelBrotSet);
 
         }
 
@@ -224,7 +406,7 @@ class Window extends JFrame {
             iterationPanel.setBorder(new TitledBorder(new EtchedBorder(), "Iteration Controller"));
 
             JLabel iterationNumber = new JLabel("Number:", SwingConstants.RIGHT);
-            JTextField iterationField = new JTextField(3);
+            iterationField = new JTextField(3);
             iterationField.setText(Integer.toString(maxIterations)); // Set the value of the variable to be field content
             JButton redrawButton = new JButton("Redraw fractal");
             redrawButton.addActionListener(new ActionListener() {
@@ -258,33 +440,120 @@ class Window extends JFrame {
         }
 
         public void createTabbedPaneBox() {
+
+            int sliderValue;
             JPanel chooseFractalPanel = new JPanel();
-            chooseFractalPanel.setLayout(new FlowLayout());
-            chooseFractalPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-            chooseFractalPanel.setBorder(new TitledBorder(new EtchedBorder(), "Choose Fractal"));
+            chooseFractalPanel.setLayout(new BorderLayout());
+            JPanel fractalTop = new JPanel();
+            fractalTop.setLayout(new FlowLayout());
+            JPanel fractalBottom = new JPanel();
+            fractalBottom.setLayout(new FlowLayout());
+            chooseFractalPanel.add(fractalTop, BorderLayout.NORTH);
+            chooseFractalPanel.add(fractalBottom, BorderLayout.SOUTH);
+
+            ButtonGroup fractalGroup = new ButtonGroup();
             JRadioButton mandelbrotRadio = new JRadioButton("Mandelbrot Set");
+            fractalGroup.add(mandelbrotRadio);
             mandelbrotRadio.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
+                    currentBrot = "mandelbrot";
+                    leftPanel.remove(multiBrotDraw);
+                    leftPanel.remove(burningShipDraw);
+                    leftPanel.remove(tricornDraw);
+                    leftPanel.add(mandelbrotPanel);
+                    resetAxisValues();
                     mandelbrotPanel.calculatePoints(maxIterations,minIm,maxIm,minReal,maxReal);
+                    mandelbrotPanel.setFocusable(true);
+                    juliaPanel.add(juliaMandelBrotSet);
+                    mandelbrotPanel.requestFocus();
                 }
             });
 
-            JRadioButton tunnelRadio = new JRadioButton("Tunnel");
-            tunnelRadio.addActionListener(new ActionListener() {
+            JRadioButton burningShipRadio = new JRadioButton("Burning Ship");
+            fractalGroup.add(burningShipRadio);
+            burningShipRadio.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    tunnelDraw = new Tunnel(maxIterations,minIm,maxIm,minReal,maxReal);
+                    currentBrot = "burning ship";
                     leftPanel.remove(mandelbrotPanel);
-                    leftPanel.add(tunnelDraw);
-                    MouseListenerDisplay mouseListenerTunnel = new MouseListenerDisplay(tunnelDraw);
-                    tunnelDraw.addMouseListener(mouseListenerTunnel);
-                    tunnelDraw.addMouseMotionListener(mouseListenerTunnel);
-                    tunnelDraw.calculatePoints(maxIterations,minIm,maxIm,minReal,maxReal);
+                    leftPanel.remove(multiBrotDraw);
+                    leftPanel.add(burningShipDraw);
+                    resetAxisValues();
+                    burningShipDraw.calculatePoints(maxIterations,minIm,maxIm,minReal,maxReal);
+                    burningShipDraw.setFocusable(true);
+                    juliaPanel.add(juliaBurningShipSet);
+                    burningShipDraw.requestFocus();
                 }
             });
-            chooseFractalPanel.add(mandelbrotRadio);
-            chooseFractalPanel.add(tunnelRadio);
+
+            JRadioButton multiBrotRadio = new JRadioButton("Multibrot");
+            fractalGroup.add(multiBrotRadio);
+            JSlider multiBrotSlider = new JSlider(2,5,2);
+
+            multiBrotSlider.setMajorTickSpacing(1);
+            multiBrotSlider.setPaintTicks(true);
+            multiBrotSlider.setSnapToTicks(true);
+            multiBrotSlider.addChangeListener(new ChangeListener() {
+                @Override
+                public void stateChanged(ChangeEvent e) {
+                    if (multiBrotRadio.isSelected()) {
+                        int sliderValue = multiBrotSlider.getValue();
+                        currentBrot = "multibrot";
+                        juliaMultiBrotSet.setValue(sliderValue);
+                        leftPanel.remove(mandelbrotPanel);
+                        leftPanel.remove(burningShipDraw);
+                        leftPanel.add(multiBrotDraw);
+                        juliaPanel.add(juliaMultiBrotSet);
+                        multiBrotDraw.setValue(sliderValue);
+                        resetAxisValues();
+                        multiBrotDraw.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
+                        multiBrotDraw.setFocusable(true);
+                        multiBrotDraw.requestFocus();
+                    }
+                }
+            });
+
+            multiBrotRadio.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    currentBrot = "multibrot";
+                    juliaMultiBrotSet.setValue(multiBrotSlider.getValue());
+                    leftPanel.remove(mandelbrotPanel);
+                    leftPanel.remove(burningShipDraw);
+                    leftPanel.remove(tricornDraw);
+                    leftPanel.add(multiBrotDraw);
+                    multiBrotDraw.setFocusable(true);
+                    resetAxisValues();
+                    multiBrotDraw.calculatePoints(maxIterations,minIm,maxIm,minReal,maxReal);
+                    juliaPanel.add(juliaMultiBrotSet);
+                    multiBrotDraw.requestFocus();
+                }
+            });
+
+            JRadioButton tricornRadio = new JRadioButton("Tricorn");
+            fractalGroup.add(tricornRadio);
+            tricornRadio.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    currentBrot = "tricorn";
+                    leftPanel.remove(mandelbrotPanel);
+                    leftPanel.remove(burningShipDraw);
+                    leftPanel.remove(multiBrotDraw);
+                    leftPanel.add(tricornDraw);
+                    tricornDraw.setFocusable(true);
+                    resetAxisValues();
+                    tricornDraw.calculatePoints(maxIterations,minIm,maxIm,minReal,maxReal);
+                    juliaPanel.add(juliaTricornSet);
+                    tricornDraw.requestFocus();
+                }
+            });
+
+            fractalTop.add(mandelbrotRadio);
+            fractalTop.add(burningShipRadio);
+            fractalTop.add(tricornRadio);
+            fractalBottom.add(multiBrotSlider);
+            fractalBottom.add(multiBrotRadio);
 
             JPanel favouritesFractal = new JPanel();
             JTabbedPane tabbedPanel = new JTabbedPane();
@@ -296,16 +565,26 @@ class Window extends JFrame {
             JPanel top = new JPanel();
             top.setLayout(new FlowLayout());
             favouritesPanel.setLayout(new BorderLayout());
-            favouritesPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-            favouritesPanel.setBorder(new TitledBorder(new EtchedBorder(), "Favourites"));
 
             JButton addFavourites = new JButton("Add to favourites");
             JButton saveImage = new JButton("Save current julia");
+
+            saveImage.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    BufferedImage saveImage = new BufferedImage(currentJulia.getWidth(), currentJulia.getHeight(), BufferedImage.TYPE_INT_ARGB);
+                    Graphics g = saveImage.getGraphics();
+                    currentJulia.paint(g);
+                    try {
+                        ImageIO.write(saveImage, "png", new File("img"));
+                    } catch (IOException ex) {}
+                }
+            });
             JComboBox pointCombo = new JComboBox();
 
             try {
                 br = new BufferedReader(new FileReader("Points.txt"));
-                String line = null;
+                String line;
 
                 while ((line = br.readLine()) != null) {
                     pointCombo.addItem(line.toString());
@@ -331,15 +610,11 @@ class Window extends JFrame {
                         br = new BufferedReader(new FileReader("Points.txt"));
                         String line = null;
 
-
-                        //pointCombo.removeAllItems();
                         while ((line = br.readLine()) != null) {
                             pointCombo.addItem(line.toString());
                             pointCombo.removeItem(line.toString());
                             pointCombo.addItem(line.toString());
-
                         }
-
 
                     } catch (IOException e1) {}
                 }
@@ -349,13 +624,13 @@ class Window extends JFrame {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     try {
-
+                        getCurrentBrot();
                         br = new BufferedReader(new FileReader("Points.txt"));
-                        String line = null;
+                        String line;
                         String[] points;
                         Object selectedItem = pointCombo.getSelectedItem();
                         points = pointCombo.getSelectedItem().toString().split(",");
-                        julia.calculatePoints(Double.parseDouble(points[0]), Double.parseDouble(points[1]));
+                        currentJulia.calculatePoints(Double.parseDouble(points[0]), Double.parseDouble(points[1]));
 
                         pointCombo.removeAllItems();
                         while ((line = br.readLine()) != null) {
@@ -364,7 +639,7 @@ class Window extends JFrame {
 
                         pointCombo.setSelectedItem(selectedItem);
 
-                    }catch(IOException e1) {}
+                    }catch(Exception e1) {}
 
                 }
             });
@@ -377,9 +652,9 @@ class Window extends JFrame {
             this.add(favouritesFractal);
         }
 
-        public void createJuliaBox() {
-            julia = new Julia(maxIterations, minIm, maxIm, minReal, maxReal);
-            JPanel juliaPanel = new JPanel();
+        public void createJuliaBox(JuliaSet julia) {
+            //juliaMandelBrotSet = new Julia(maxIterations, minIm, maxIm, minReal, maxReal);
+            juliaPanel = new JPanel();
             juliaPanel.setPreferredSize(new Dimension(600, 540));
             juliaPanel.setLayout(null);
             juliaPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));

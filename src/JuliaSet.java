@@ -2,20 +2,20 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 
-class Julia extends JPanel {
+public abstract class JuliaSet extends JPanel {
 
-    int width;
-    int height;
-    double zX = 0; //500
-    double zY = 0; // 960
-    private BufferedImage I;
-    private int maxIterations;
-    private double minIm;
-    private double maxIm;
-    private double minReal;
-    private double maxReal;
+    protected int width;
+    protected int height;
+    protected double zX = 0; //500
+    protected double zY = 0; // 960
+    protected BufferedImage I;
+    protected int maxIterations;
+    protected double minIm;
+    protected double maxIm;
+    protected double minReal;
+    protected double maxReal;
 
-    public Julia(int maxIterations, double minIm, double maxIm, double minReal, double maxReal) {
+    public JuliaSet(int maxIterations, double minIm, double maxIm, double minReal, double maxReal) {
 
         this.maxIterations = maxIterations;
         this.minIm = minIm;
@@ -35,33 +35,7 @@ class Julia extends JPanel {
 
     }
 
-    protected void calculatePoints(double clickedX, double clickedY) {
-        Complex c = new Complex(clickedX, clickedY);
-        Complex z;
-        Complex d;
-        Complex z2;
-        int noIterations;
-        Color paintColour;
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                noIterations = 0;
-
-                zY = maxIm - y * (maxIm - minIm) / height;
-                zX = minReal + x * (maxReal - minReal) / width;
-                z = new Complex(zX, zY);
-
-                while (z.modulusSquared() < 4 && noIterations < maxIterations) {
-                    z2 = z.square();
-                    z2 = z2.add(c);
-                    z = z2;
-                    noIterations++;
-                }
-                paintColour = generateColors(noIterations);
-                I.setRGB(x, y, paintColour.getRGB());
-            }
-        }
-        repaint();
-    }
+    public abstract void calculatePoints(Double clickedX, double clickedY);
 
     public Color generateColors(int noIterations) {
 
