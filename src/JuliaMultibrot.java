@@ -8,6 +8,12 @@ public class JuliaMultibrot extends JuliaSet {
         super(maxIterations, minIm, maxIm, minReal, maxReal);
     }
 
+    /*
+     * This method is interesting as it is squaring the square for as many times as is set
+     * by the variable 'value'
+     * I used a JSlider to implement the different multibrots to show how this works
+     * It is multiple mandelbrots together in one
+     */
     @Override
     public void calculatePoints(Double clickedX, double clickedY) {
         Complex c = new Complex(clickedX, clickedY);

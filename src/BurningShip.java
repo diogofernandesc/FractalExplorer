@@ -5,14 +5,20 @@ public class BurningShip extends Fractal {
         super(maxIterations, minIm, maxIm, minReal, maxReal);
     }
 
+    /*
+     * Implementation of the formula where |re z(i)| = Math.abs(z.getReal())
+     * |im Z(i)| = Math.abs(z.getImaginary())
+     * For a more detailed explanation of this method look at calculatePoints on the MandelbrotSet class
+     */
+
     @Override
     public void calculatePoints(int maxIterations, double minIm, double maxIm, double minReal, double maxReal) {
         Complex c;
         Complex z;
-        Complex z2;
         int noIterations;
         Color paintColour;
 
+        // Loops for every pixel on panel
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 noIterations = 0;
@@ -20,6 +26,7 @@ public class BurningShip extends Fractal {
                 // zX and zY initially 0
                 c = new Complex(zX, zY);
 
+                // Conversion of the coordinates to complex points
                 zY = maxIm - y * (maxIm - minIm) / height;
                 zX = minReal + x * (maxReal - minReal) / width;
                 z = new Complex(zX, zY);

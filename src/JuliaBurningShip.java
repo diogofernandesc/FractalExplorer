@@ -24,8 +24,6 @@ public class JuliaBurningShip extends JuliaSet {
                 while (z.modulusSquared() < 4 && noIterations < maxIterations) {
                     z = new Complex(Math.abs(z.getReal()), Math.abs(z.getImaginary()));
                     z = z.square();
-                    //z2 = new Complex(Math.abs(z.getReal()), Math.abs(z.getImaginary()));
-                    //z2.square();
                     z = z.add(c);
                     noIterations++;
                 }

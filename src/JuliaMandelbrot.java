@@ -6,6 +6,10 @@ public class JuliaMandelbrot extends JuliaSet {
         super(maxIterations, minIm, maxIm, minReal, maxReal);
     }
 
+    /*
+     * This is the same method for calculating points as the mandelbrot panel except here we fix to be the point where
+     * the cursor is
+     */
     @Override
     public void calculatePoints(Double clickedX, double clickedY) {
         Complex c = new Complex(clickedX, clickedY);

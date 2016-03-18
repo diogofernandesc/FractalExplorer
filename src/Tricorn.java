@@ -6,6 +6,13 @@ public class Tricorn extends Fractal {
         super(maxIterations, minIm, maxIm, minReal, maxReal);
     }
 
+    /*
+     * Here I simply used the squareTricorn() method instead of the normal square
+     * method for the mandelbrot
+     * The squareTricorn() is almost identical to the mandelbrot except that it is z(i+1) = z(i)^-2 + c
+     * This means that the imaginary value is calculated via -2ab
+     * How this is implemented is shown in the Complex class
+     */
     @Override
     public void calculatePoints(int maxIterations, double minIm, double maxIm, double minReal, double maxReal) {
         Complex c;

@@ -9,6 +9,11 @@ public class MultiBrot extends Fractal {
         this.value = value;
     }
 
+    /*
+     * For a more specific definition of calculatePoints look at the MandelbrotSet class
+     * This method squares a value constantly for a given amount of times given by the variable 'value'
+     * This creates a fractal of multiple mandelbrots jointed together at a center point
+     */
     @Override
     public void calculatePoints(int maxIterations, double minIm, double maxIm, double minReal, double maxReal) {
         Complex c;
@@ -46,6 +51,7 @@ public class MultiBrot extends Fractal {
         repaint();
     }
 
+    // This is used to set the value when used in the jslider
     public void setValue(int value) {
         this.value = value;
     }

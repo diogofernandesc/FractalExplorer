@@ -1,5 +1,3 @@
-import com.sun.org.apache.xpath.internal.operations.Mult;
-
 import java.awt.*;
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -10,14 +8,11 @@ import javax.swing.event.ChangeListener;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 
 public class Display {
 
     public static void main(String[] args) {
-        Window window = new Window("Mandelbrot Set");
+        Window window = new Window("Fractal Explorer");
         window.init();
     }
 }
@@ -46,11 +41,23 @@ class Window extends JFrame {
     private String currentBrot;
     private Fractal currentFractal;
     private JuliaSet currentJulia;
+    private MouseListenerDisplay displayMouseListener;
+    private KeyListenerDisplay displayKeyListener;
+    private boxListener boxOnlyListener;
 
     public Window(String title) {
         super("Fractal Explorer");
     }
 
+    /*
+     * This is where the main GUI is initialized:
+     * boxOnlyListener is used so that the enter button can be used to trigger a redraw of the fractal
+     * instead of clicking the redraw fractal button
+     *
+     * This is split into two main panels left and right
+     * The left panel consists of the main fractal, the right of the main controls and julia set
+     * All fractals and julias use the same mount and keyboard listeners so that control can be swapped across
+     */
     protected void init() {
         this.setPreferredSize(new Dimension(1200, 800));
         this.setResizable(true);
@@ -60,8 +67,9 @@ class Window extends JFrame {
         container.setLayout(new BorderLayout());
         container.setBackground(Color.LIGHT_GRAY);
 
-        MouseListenerDisplay displayMouseListener = new MouseListenerDisplay();
-        KeyListenerDisplay displayKeyListener = new KeyListenerDisplay();
+        boxOnlyListener = new boxListener();
+        displayMouseListener = new MouseListenerDisplay();
+        displayKeyListener = new KeyListenerDisplay();
 
         // Mandelbrot creation:
         mandelbrotPanel = new MandelbrotSet(maxIterations, minIm, maxIm, minReal, maxReal);
@@ -95,6 +103,7 @@ class Window extends JFrame {
 
         RightPanel rightPanel = new RightPanel();
         rightPanel.init();
+
         leftPanel = new JPanel();
         leftPanel.setLayout(null);
 
@@ -110,9 +119,13 @@ class Window extends JFrame {
         this.pack();
         this.setVisible(true);
         this.setResizable(false);
-
     }
 
+    /* Keeps track of what the current fractal and julia are
+     * This is used when user is choosing between drawing different fractals
+     * So that julia can change and the mouse events can execute fine for the different fractals
+     * This also allows the keyboard events to swap between fractals fine
+     */
     public void getCurrentBrot() {
         if (currentBrot == "mandelbrot") {
             currentFractal = mandelbrotPanel;
@@ -132,6 +145,7 @@ class Window extends JFrame {
         }
     }
 
+    // Simple method to reset the axis when a different fractal is drawn from the options
     protected void resetAxisValues() {
         minReal = -2.0;
         maxReal = 2.0;
@@ -150,6 +164,11 @@ class Window extends JFrame {
             getCurrentBrot();
         }
 
+        /* Part of the implementation of part four
+         * This event sets the complex point JLabel to whatever the current point is
+         * setBounds here is used to adjust the size of the julia as this event causes components to shift
+         * downwards slightly
+         */
         @Override
         public void mouseClicked(MouseEvent e) {
             getCurrentBrot();
@@ -160,10 +179,11 @@ class Window extends JFrame {
             } else {
                 complexPoint.setText(clickedX + " + " + clickedY + "i");
             }
-            currentJulia.setBounds(10, 20, 400, 340);
+            currentJulia.setBounds(10, 20, 400, 325);
             currentJulia.calculatePoints(clickedX, clickedY);
         }
 
+        // This is required as the initial x and y complex points for the zooming function
         @Override
         public void mousePressed(MouseEvent e) {
             getCurrentBrot();
@@ -171,6 +191,13 @@ class Window extends JFrame {
             clickedX = minReal + e.getX() * (maxReal - minReal) / currentFractal.getWidth();
         }
 
+        /*
+         * releasedX and Y are the points that the zoom is performed on (end ones)
+         * the if statement is to make sure that the zoom doesn't occur on a click
+         * Math.min and max are used here so that you can compute the zoom on the left or right of the initial point
+         * This is because there are situations where u want to zoom in all directions
+         * Also updates the axis fields to show the new axis values after the zoom
+         */
         @Override
         public void mouseReleased(MouseEvent e) {
             getCurrentBrot();
@@ -178,7 +205,7 @@ class Window extends JFrame {
             releasedY = maxIm - e.getY() * (maxIm - minIm) / currentFractal.getHeight();
 
             // Stop zoom when clicking
-            if (((Math.abs(clickedX - releasedX)) > 0) || ((Math.abs(clickedY - releasedY)) > 0 )) {
+            if (((Math.abs(clickedX - releasedX)) > 0) || ((Math.abs(clickedY - releasedY)) > 0)) {
                 minReal = Math.min(clickedX, releasedX);
                 maxReal = Math.max(clickedX, releasedX);
                 minIm = Math.min(clickedY, releasedY);
@@ -190,18 +217,17 @@ class Window extends JFrame {
             imaginaryAxisFieldMax.setText(Double.toString(maxIm));
             imaginaryAxisFieldMin.setText(Double.toString(minIm));
 
-            currentFractal.calculatePoints(maxIterations,minIm,maxIm,minReal,maxReal);
+            currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
         }
 
-        @Override
         public void mouseEntered(MouseEvent e) {}
-
-        @Override
         public void mouseExited(MouseEvent e) {}
-
-        @Override
         public void mouseDragged(MouseEvent e) {}
 
+        /*
+         * Used to create the live julia as part of one of the extensions
+         * Converting the points to complex points and drawing the julia
+         */
         @Override
         public void mouseMoved(MouseEvent e) {
             getCurrentBrot();
@@ -213,12 +239,37 @@ class Window extends JFrame {
         }
     }
 
+    class boxListener implements KeyListener {
+
+        // Used in the axis labels and iteration box as an alternative to clicking redraw fractal
+        @Override
+        public void keyPressed(KeyEvent e) {
+            getCurrentBrot();
+            if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                maxIterations = Integer.parseInt(iterationField.getText());
+                minIm = Double.parseDouble(imaginaryAxisFieldMin.getText());
+                maxIm = Double.parseDouble(imaginaryAxisFieldMax.getText());
+                minReal = Double.parseDouble(realAxisFieldMin.getText());
+                maxReal = Double.parseDouble(realAxisFieldMax.getText());
+                currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
+            }
+        }
+
+        public void keyReleased(KeyEvent e) {}
+        public void keyTyped(KeyEvent e) {}
+    }
+
     class KeyListenerDisplay implements KeyListener {
 
         public KeyListenerDisplay() {
             getCurrentBrot();
         }
 
+        /*
+         * This is part of one of the extensions, please read the ReadMe for a deeper explanation
+         * allows the axis to be changed to zoom in and out
+         * Also sets the axis labels accordingly so user can keep track
+         */
         public void zoom(double amount) {
             getCurrentBrot();
             minReal = draggedX - amount;
@@ -232,10 +283,20 @@ class Window extends JFrame {
             maxIterations = Integer.parseInt(iterationField.getText());
             currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
         }
-        @Override
-        public void keyTyped(KeyEvent e) {
 
-        }
+        public void keyTyped(KeyEvent e) {}
+
+        /*
+         * Enter has the same functionality, redrawing the fractal with the updated values
+         * Left arrow key moves the fractal to the left by increasing the real max value by 0.5
+         * Right arrow moves fractal to the right by decreasing the real minimum value by 0.5
+         * Up arrow moves fractal up by decreasing the imaginary axis minimum value by 0.5
+         * Down arrow moves fractal down by increasing the maximum imaginary axis by 0.5
+         * Backspace resets the current fractal by resetting all the axis values to their defaults
+         * The functionality of keys 1-9 are explained in the readme file: (This is one of my own extensions)
+         * Essentially, they all have different levels of 'zoom depth' with 1 being the least and 9 the most
+         * If you are at zoom 9 depth clicking lower numbers zooms out, if you are zoom depth 1, clicking higher numbers zooms in
+         */
 
         @Override
         public void keyPressed(KeyEvent e) {
@@ -259,7 +320,6 @@ class Window extends JFrame {
                 currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
 
             } else if (e.getKeyCode() == KeyEvent.VK_UP) {
-                // imag axis decrease
                 minIm = Double.parseDouble(imaginaryAxisFieldMin.getText()) - 0.5;
                 imaginaryAxisFieldMin.setText(Double.toString(minIm));
                 currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
@@ -320,19 +380,18 @@ class Window extends JFrame {
         JPanel juliaPanel;
         File pointFile = new File("Points.txt");
 
-        FileInputStream fileStream;
         BufferedReader br;
         BufferedWriter out;
 
         public RightPanel() {
             this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
             this.setPreferredSize(new Dimension(430, 750));
-            //this.setSize(600, 1080);
             this.setBorder(BorderFactory.createLineBorder(Color.BLACK));
             this.setBorder(new TitledBorder(new EtchedBorder(), "Settings"));
 
         }
 
+        // Calls all methods that create the controls for the explorer
         public void init() {
 
             // Create real axis box:
@@ -355,6 +414,11 @@ class Window extends JFrame {
 
         }
 
+        /*
+         * Creates the two real axis boxes and their labels on a 2x2 grid layout
+         * Also adds the boxListener key listener to each field so that the user can click enter to redraw
+         */
+
         public void createRealAxisBox() {
             JPanel realAxisPanel = new JPanel();
             realAxisPanel.setLayout(new GridLayout(2, 2));
@@ -373,12 +437,20 @@ class Window extends JFrame {
             realAxisPanel.add(maxRealLabel);
             realAxisPanel.add(realAxisFieldMax);
 
+            realAxisFieldMin.addKeyListener(boxOnlyListener);
+            realAxisFieldMax.addKeyListener(boxOnlyListener);
+            realAxisFieldMin.requestFocus();
+            realAxisFieldMax.requestFocus();
             this.add(realAxisPanel);
         }
 
+        /*
+         * Creates the two imaginary axis boxes and their labels on a 2x2 grid layout
+         * Also adds the boxListener key listener to each field so that the user can click enter to redraw
+         */
+
         public void createImaginaryAxisBox() {
             JPanel imagAxisPanel = new JPanel();
-            imagAxisPanel.setSize(600, 180);
             imagAxisPanel.setLayout(new GridLayout(2, 2));
             imagAxisPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
             imagAxisPanel.setBorder(new TitledBorder(new EtchedBorder(), "Imaginary Axis"));
@@ -396,9 +468,19 @@ class Window extends JFrame {
             imagAxisPanel.add(maxImLabel);
             imagAxisPanel.add(imaginaryAxisFieldMax);
 
+            imaginaryAxisFieldMin.addKeyListener(boxOnlyListener);
+            imaginaryAxisFieldMax.addKeyListener(boxOnlyListener);
+            imaginaryAxisFieldMin.requestFocus();
+            imaginaryAxisFieldMax.requestFocus();
+
             this.add(imagAxisPanel);
         }
 
+        /*
+         * Creates the iteration field and the redraw button
+         * The redraw button has an actionListener that redraws the fractal by taking the current axis field values
+         * The iteration field also has the same keylistener as the axis fields
+         */
         public void createIterationsBox() {
             JPanel iterationPanel = new JPanel();
             iterationPanel.setLayout(new FlowLayout());
@@ -407,17 +489,20 @@ class Window extends JFrame {
 
             JLabel iterationNumber = new JLabel("Number:", SwingConstants.RIGHT);
             iterationField = new JTextField(3);
+            iterationField.addKeyListener(boxOnlyListener);
+            iterationField.requestFocus();
             iterationField.setText(Integer.toString(maxIterations)); // Set the value of the variable to be field content
             JButton redrawButton = new JButton("Redraw fractal");
             redrawButton.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
+                    getCurrentBrot();
                     maxIterations = Integer.parseInt(iterationField.getText());
                     minIm = Double.parseDouble(imaginaryAxisFieldMin.getText());
                     maxIm = Double.parseDouble(imaginaryAxisFieldMax.getText());
                     minReal = Double.parseDouble(realAxisFieldMin.getText());
                     maxReal = Double.parseDouble(realAxisFieldMax.getText());
-                    mandelbrotPanel.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
+                    currentFractal.calculatePoints(maxIterations, minIm, maxIm, minReal, maxReal);
                 }
             });
 
@@ -427,6 +512,10 @@ class Window extends JFrame {
 
             this.add(iterationPanel);
         }
+
+        /*
+         * Simply adds the JLabel current point to the screen when the user clicks
+         */
 
         public void createCurrentPointBox() {
             JPanel currentPointPanel = new JPanel();
@@ -439,9 +528,30 @@ class Window extends JFrame {
             this.add(currentPointPanel);
         }
 
+        /*
+         * Here there are 3 tabbed panes; one for favourites, one for saving the favourites as images (extension)
+         * and one to choose which fractal to draw
+         * The choice of fractals to draw are on radio buttons each with an action listener with almost exactly the
+         * same functionality:
+         * 1. Call currentBrot to set the currentFractal to the fractal clicked
+         * 2. Remove any other fractals from the left panel and add the clicked one
+         * 3. Reset the axis for a clear image
+         * 4. Draw the new fractal and the new julia in their respective positions
+         * 5. Allow the user to perform the functionality of the key and mouse listeners implemented
+         *
+         * The multibrot has a slider that is explained in the readme, basically it sets the amount of times squared
+         * Which has several options to choose from that redraw at every change, this slider is only functional if
+         * the radio button for the multibrot is selected [Extension]
+         *
+         * The favourites works with a combo box by adding the selected point to a text file and then reading that file
+         * and updating the combo box, if one of the points is selected on the combo box that is drawn to the julia area
+         *
+         * The image displayed in the julia can also be saved to a file in the 2nd tab by giving a name
+         * this is saved in the same directory as the .java files [extension]
+         *
+         */
         public void createTabbedPaneBox() {
 
-            int sliderValue;
             JPanel chooseFractalPanel = new JPanel();
             chooseFractalPanel.setLayout(new BorderLayout());
             JPanel fractalTop = new JPanel();
@@ -478,6 +588,7 @@ class Window extends JFrame {
                     currentBrot = "burning ship";
                     leftPanel.remove(mandelbrotPanel);
                     leftPanel.remove(multiBrotDraw);
+                    leftPanel.remove(tricornDraw);
                     leftPanel.add(burningShipDraw);
                     resetAxisValues();
                     burningShipDraw.calculatePoints(maxIterations,minIm,maxIm,minReal,maxReal);
@@ -503,6 +614,7 @@ class Window extends JFrame {
                         juliaMultiBrotSet.setValue(sliderValue);
                         leftPanel.remove(mandelbrotPanel);
                         leftPanel.remove(burningShipDraw);
+                        leftPanel.remove(tricornDraw);
                         leftPanel.add(multiBrotDraw);
                         juliaPanel.add(juliaMultiBrotSet);
                         multiBrotDraw.setValue(sliderValue);
@@ -558,16 +670,26 @@ class Window extends JFrame {
             JPanel favouritesFractal = new JPanel();
             JTabbedPane tabbedPanel = new JTabbedPane();
             JPanel favouritesPanel = new JPanel();
+            JPanel saveFavourite = new JPanel();
+
             tabbedPanel.addTab("Favourites", favouritesPanel);
+            tabbedPanel.addTab("Save as Image", saveFavourite);
             tabbedPanel.addTab("Choose Fractal", chooseFractalPanel);
+
             favouritesFractal.add(tabbedPanel);
 
             JPanel top = new JPanel();
             top.setLayout(new FlowLayout());
             favouritesPanel.setLayout(new BorderLayout());
+            saveFavourite.setLayout(new BorderLayout());
 
             JButton addFavourites = new JButton("Add to favourites");
             JButton saveImage = new JButton("Save current julia");
+
+            JPanel bottomSaveTab = new JPanel();
+            bottomSaveTab.setLayout(new FlowLayout());
+            JTextField imageNameField = new JTextField(20);
+            JLabel imageName = new JLabel("Image name:");
 
             saveImage.addActionListener(new ActionListener() {
                 @Override
@@ -576,10 +698,11 @@ class Window extends JFrame {
                     Graphics g = saveImage.getGraphics();
                     currentJulia.paint(g);
                     try {
-                        ImageIO.write(saveImage, "png", new File("img"));
+                        ImageIO.write(saveImage, "png", new File(imageNameField.getText()+".png"));
                     } catch (IOException ex) {}
                 }
             });
+
             JComboBox pointCombo = new JComboBox();
 
             try {
@@ -599,9 +722,8 @@ class Window extends JFrame {
                 public void actionPerformed(ActionEvent e) {
                     try {
                         if (!pointFile.exists()) {
-                            pointFile.createNewFile();
+                            pointFile.createNewFile(); // Makes sure a points.txt file always exists that can be written to
                         }
-
 
                         out = new BufferedWriter(new FileWriter("Points.txt", true));
                         out.write(Double.toString(clickedX) + "," + Double.toString(clickedY) + "\n");
@@ -645,15 +767,18 @@ class Window extends JFrame {
             });
 
             top.add(addFavourites);
-            top.add(saveImage);
+            bottomSaveTab.add(imageName);
+            bottomSaveTab.add(imageNameField);
+            saveFavourite.add(saveImage,BorderLayout.NORTH);
+            saveFavourite.add(bottomSaveTab,BorderLayout.SOUTH);
             favouritesPanel.add(top, BorderLayout.NORTH);
             favouritesPanel.add(pointCombo, BorderLayout.SOUTH);
 
             this.add(favouritesFractal);
         }
 
+        // Creates the box in the right panel for the julia
         public void createJuliaBox(JuliaSet julia) {
-            //juliaMandelBrotSet = new Julia(maxIterations, minIm, maxIm, minReal, maxReal);
             juliaPanel = new JPanel();
             juliaPanel.setPreferredSize(new Dimension(600, 540));
             juliaPanel.setLayout(null);
